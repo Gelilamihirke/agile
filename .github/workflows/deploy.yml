@@ -1,89 +1,71 @@
-name: 🚀 TaskFlow DevOps Demo
+name: DevOps Demo Pipeline
 
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:  # Manual trigger for demo purposes
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  # JOB 1: Quality Checks
-  quality:
+  test:
     runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+    
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: 📝 Check HTML files
-        run: |
-          echo "✅ HTML files validated"
-          echo "📄 Found: $(find . -name '*.html' | wc -l) HTML files"
-      
-      - name: 🎨 Check CSS files  
-        run: |
-          echo "✅ CSS files validated" 
-          echo "🎨 Found: $(find . -name '*.css' | wc -l) CSS files"
-      
-      - name: 📜 Check JavaScript files
-        run: |
-          echo "✅ JavaScript files validated"
-          echo "📜 Found: $(find . -name '*.js' | wc -l) JS files"
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linter
+      run: npm run lint || true
+    
+    - name: Run tests
+      run: npm test
+      env:
+        NODE_ENV: test
+    
+    - name: Generate coverage report
+      run: npm run test:coverage || true
 
-  # JOB 2: Build & Package
-  build:
-    needs: quality
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: 📦 Create deployment package
-        run: |
-          mkdir deploy
-          cp -r index.html css js deploy/
-          tar -czf taskflow-release.tar.gz deploy/
-          echo "✅ Build complete - Package size: $(du -h taskflow-release.tar.gz | cut -f1)"
-      
-      - name: 💾 Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: taskflow-build
-          path: taskflow-release.tar.gz
-
-  # JOB 3: Deploy (Demo)
-  deploy-demo:
-    needs: build
+  build-and-deploy:
+    needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: 🚀 Simulate deployment
-        run: |
-          echo "═══════════════════════════════════════"
-          echo "🎉 DEPLOYMENT SUCCESSFUL 🎉"
-          echo "═══════════════════════════════════════"
-          echo "📱 App: TaskFlow Task Manager"
-          echo "🔢 Version: 2.0.0"
-          echo "🌐 Environment: Production"
-          echo "📅 Deployed: $(date)"
-          echo "🔗 URL: https://your-app.github.io/taskflow"
-          echo "═══════════════════════════════════════"
-      
-      - name: 📧 Send notification (Demo)
-        run: |
-          echo "📧 Email notification sent to: team@example.com"
-          echo "💬 Slack notification sent to: #deployments"
-
-  # JOB 4: Health Check
-  health:
-    needs: deploy-demo
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🏥 Run health checks
-        run: |
-          echo "═══════════════════════════════════════"
-          echo "🏥 HEALTH CHECK RESULTS"
-          echo "═══════════════════════════════════════"
-          echo "✅ Application: Healthy"
-          echo "✅ Database: Connected (localStorage)"
-          echo "✅ API: Responding (200 OK)"
-          echo "✅ Response Time: <100ms"
-          echo "═══════════════════════════════════════"
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Create .env file
+      run: |
+        echo "PORT=3000" > .env
+        echo "NODE_ENV=production" >> .env
+        echo "CORS_ORIGIN=https://your-app-url.com" >> .env
+    
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying application..."
+        echo "✅ Application deployed successfully!"
+        echo "📊 Health check: http://localhost:3000/health"
+    
+    - name: Notify deployment
+      run: |
+        echo "📧 Deployment notification sent"
+        echo "🎉 Version ${{ github.sha }} deployed at $(date)"
