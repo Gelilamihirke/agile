@@ -1,7 +1,0 @@
-node_modules/
-database.sqlite
-*.log
-.env
-.DS_Store
-coverage/
-.nyc_output/
